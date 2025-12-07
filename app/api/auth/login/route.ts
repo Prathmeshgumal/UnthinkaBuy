@@ -1,13 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-
-const FASTAPI_BACKEND_URL = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000"
+import { getBackendUrl } from "@/lib/api-config"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
     // Proxy request to FastAPI backend
-    const response = await fetch(`${FASTAPI_BACKEND_URL}/api/auth/login`, {
+    const response = await fetch(`${getBackendUrl()}/api/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

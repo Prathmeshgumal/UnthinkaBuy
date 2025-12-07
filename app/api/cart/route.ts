@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
-
-const FASTAPI_BACKEND_URL = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000"
+import { getBackendUrl } from "@/lib/api-config"
 
 // GET - Get user's cart
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
-    
+
     if (!authHeader) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const response = await fetch(`${FASTAPI_BACKEND_URL}/api/cart`, {
+    const response = await fetch(`${getBackendUrl()}/api/cart`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -39,14 +38,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
-    
+
     if (!authHeader) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await request.json()
 
-    const response = await fetch(`${FASTAPI_BACKEND_URL}/api/cart`, {
+    const response = await fetch(`${getBackendUrl()}/api/cart`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -82,12 +81,12 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
-    
+
     if (!authHeader) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const response = await fetch(`${FASTAPI_BACKEND_URL}/api/cart`, {
+    const response = await fetch(`${getBackendUrl()}/api/cart`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",

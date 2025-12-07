@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server"
-
-const FASTAPI_BACKEND_URL = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000"
+import { getBackendUrl } from "@/lib/api-config"
 
 export async function GET() {
-  console.log("[Random Cluster Products] Fetching from:", `${FASTAPI_BACKEND_URL}/api/random-cluster-products`)
-  
+  console.log("[Random Cluster Products] Fetching from:", `${getBackendUrl()}/api/random-cluster-products`)
+
   try {
-    const response = await fetch(`${FASTAPI_BACKEND_URL}/api/random-cluster-products`, {
+    const response = await fetch(`${getBackendUrl()}/api/random-cluster-products`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

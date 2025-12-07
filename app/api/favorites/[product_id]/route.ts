@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-
-const FASTAPI_BACKEND_URL = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000"
+import { getBackendUrl } from "@/lib/api-config"
 
 // POST - Add to favorites
 export async function POST(
@@ -18,7 +17,7 @@ export async function POST(
         console.log(`[Proxy] Adding favorite: ${params.product_id}`)
 
         const response = await fetch(
-            `${FASTAPI_BACKEND_URL}/api/favorites/${params.product_id}`,
+            `${getBackendUrl()}/api/favorites/${params.product_id}`,
             {
                 method: "POST",
                 headers: {
@@ -69,7 +68,7 @@ export async function DELETE(
         }
 
         const response = await fetch(
-            `${FASTAPI_BACKEND_URL}/api/favorites/${params.product_id}`,
+            `${getBackendUrl()}/api/favorites/${params.product_id}`,
             {
                 method: "DELETE",
                 headers: {
