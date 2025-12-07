@@ -37,6 +37,17 @@ backend/__pycache__/
 backend/.env
 backend/.pytest_cache/
 *.pyc
+__pycache__/
+
+# Deployment files (not needed for local dev)
+api/
+vercel.json
+DEPLOYMENT.md
+VERCEL_*.md
+QUICK_START.md
+FIXES_APPLIED.md
+ENV_VARIABLES.txt
+create_secret.py
 
 # IDEs
 .vscode/
