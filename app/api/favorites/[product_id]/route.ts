@@ -7,6 +7,16 @@ export async function POST(
     props: { params: Promise<{ product_id: string }> }
 ) {
     const params = await props.params;
+    const backendUrl = getBackendUrl()
+    
+    if (!backendUrl) {
+        console.error("[Favorites API] Backend URL not configured. Set NEXT_PUBLIC_FASTAPI_URL environment variable.")
+        return NextResponse.json(
+            { error: "Service temporarily unavailable" },
+            { status: 503 }
+        )
+    }
+
     try {
         const authHeader = request.headers.get("authorization")
 
@@ -17,7 +27,7 @@ export async function POST(
         console.log(`[Proxy] Adding favorite: ${params.product_id}`)
 
         const response = await fetch(
-            `${getBackendUrl()}/api/favorites/${params.product_id}`,
+            `${backendUrl}/api/favorites/${params.product_id}`,
             {
                 method: "POST",
                 headers: {
@@ -60,6 +70,16 @@ export async function DELETE(
     props: { params: Promise<{ product_id: string }> }
 ) {
     const params = await props.params;
+    const backendUrl = getBackendUrl()
+    
+    if (!backendUrl) {
+        console.error("[Favorites API] Backend URL not configured. Set NEXT_PUBLIC_FASTAPI_URL environment variable.")
+        return NextResponse.json(
+            { error: "Service temporarily unavailable" },
+            { status: 503 }
+        )
+    }
+
     try {
         const authHeader = request.headers.get("authorization")
 
@@ -68,7 +88,7 @@ export async function DELETE(
         }
 
         const response = await fetch(
-            `${getBackendUrl()}/api/favorites/${params.product_id}`,
+            `${backendUrl}/api/favorites/${params.product_id}`,
             {
                 method: "DELETE",
                 headers: {
@@ -102,3 +122,4 @@ export async function DELETE(
         )
     }
 }
+

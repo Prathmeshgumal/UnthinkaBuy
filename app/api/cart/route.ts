@@ -3,6 +3,16 @@ import { getBackendUrl } from "@/lib/api-config"
 
 // GET - Get user's cart
 export async function GET(request: NextRequest) {
+  const backendUrl = getBackendUrl()
+  
+  if (!backendUrl) {
+    console.error("[Cart API] Backend URL not configured. Set NEXT_PUBLIC_FASTAPI_URL environment variable.")
+    return NextResponse.json(
+      { error: "Service temporarily unavailable" },
+      { status: 503 }
+    )
+  }
+
   try {
     const authHeader = request.headers.get("authorization")
 
@@ -10,7 +20,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const response = await fetch(`${getBackendUrl()}/api/cart`, {
+    const response = await fetch(`${backendUrl}/api/cart`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -36,6 +46,16 @@ export async function GET(request: NextRequest) {
 
 // POST - Add item to cart
 export async function POST(request: NextRequest) {
+  const backendUrl = getBackendUrl()
+  
+  if (!backendUrl) {
+    console.error("[Cart API] Backend URL not configured. Set NEXT_PUBLIC_FASTAPI_URL environment variable.")
+    return NextResponse.json(
+      { error: "Service temporarily unavailable" },
+      { status: 503 }
+    )
+  }
+
   try {
     const authHeader = request.headers.get("authorization")
 
@@ -45,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
-    const response = await fetch(`${getBackendUrl()}/api/cart`, {
+    const response = await fetch(`${backendUrl}/api/cart`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -79,6 +99,16 @@ export async function POST(request: NextRequest) {
 
 // DELETE - Clear cart
 export async function DELETE(request: NextRequest) {
+  const backendUrl = getBackendUrl()
+  
+  if (!backendUrl) {
+    console.error("[Cart API] Backend URL not configured. Set NEXT_PUBLIC_FASTAPI_URL environment variable.")
+    return NextResponse.json(
+      { error: "Service temporarily unavailable" },
+      { status: 503 }
+    )
+  }
+
   try {
     const authHeader = request.headers.get("authorization")
 
@@ -86,7 +116,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const response = await fetch(`${getBackendUrl()}/api/cart`, {
+    const response = await fetch(`${backendUrl}/api/cart`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",

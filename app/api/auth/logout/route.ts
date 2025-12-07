@@ -9,14 +9,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Logged out successfully" })
     }
 
-    // Proxy request to FastAPI backend
-    const response = await fetch(`${getBackendUrl()}/api/auth/logout`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authorization,
-      },
-    })
+    const backendUrl = getBackendUrl()
+    if (backendUrl) {
+      // Proxy request to FastAPI backend
+      try {
+        await fetch(`${backendUrl}/api/auth/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: authorization,
+          },
+        })
+      } catch (error) {
+        // Silently fail - logout should always succeed
+        console.error("[Auth API] Logout backend error (ignored):", error)
+      }
+    }
 
     // Always return success for logout (even if backend fails)
     return NextResponse.json({ message: "Logged out successfully" })

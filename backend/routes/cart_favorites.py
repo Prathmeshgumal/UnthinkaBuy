@@ -356,3 +356,4 @@ async def check_if_favorited(
         print(f"[Favorites] Error checking favorite: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to check favorite: {str(e)}")
 
+

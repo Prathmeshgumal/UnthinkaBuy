@@ -2,10 +2,21 @@ import { NextResponse } from "next/server"
 import { getBackendUrl } from "@/lib/api-config"
 
 export async function GET() {
-  console.log("[Random Cluster Products] Fetching from:", `${getBackendUrl()}/api/random-cluster-products`)
+  const backendUrl = getBackendUrl()
+  
+  if (!backendUrl) {
+    console.error("[Random Cluster Products] Backend URL not configured. Set NEXT_PUBLIC_FASTAPI_URL environment variable.")
+    return NextResponse.json(
+      { cluster_products: {}, clusters: [], error: "Backend not configured" },
+      { status: 200 }
+    )
+  }
+
+  const apiUrl = `${backendUrl}/api/random-cluster-products`
+  console.log("[Random Cluster Products] Fetching from:", apiUrl)
 
   try {
-    const response = await fetch(`${getBackendUrl()}/api/random-cluster-products`, {
+    const response = await fetch(apiUrl, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -14,16 +25,21 @@ export async function GET() {
     })
 
     if (!response.ok) {
-      console.error("[Random Cluster Products] FastAPI backend error:", response.statusText)
+      console.error("[Random Cluster Products] FastAPI backend error:", response.status, response.statusText)
+      const errorText = await response.text().catch(() => "Unknown error")
+      console.error("[Random Cluster Products] Error details:", errorText)
       return NextResponse.json({ cluster_products: {}, clusters: [] }, { status: 200 })
     }
 
     const data = await response.json()
-    console.log("[Random Cluster Products] Response:", JSON.stringify(data).substring(0, 500))
+    console.log("[Random Cluster Products] Successfully fetched", data.clusters?.length || 0, "clusters")
     return NextResponse.json(data)
-  } catch (error) {
-    console.error("[Random Cluster Products] Error fetching from FastAPI backend:", error)
-    return NextResponse.json({ cluster_products: {}, clusters: [] }, { status: 200 })
+  } catch (error: any) {
+    console.error("[Random Cluster Products] Error fetching from FastAPI backend:", error.message || error)
+    return NextResponse.json(
+      { cluster_products: {}, clusters: [], error: "Failed to connect to backend" },
+      { status: 200 }
+    )
   }
 }
 

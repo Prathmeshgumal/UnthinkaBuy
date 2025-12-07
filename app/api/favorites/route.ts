@@ -3,6 +3,16 @@ import { getBackendUrl } from "@/lib/api-config"
 
 // GET - Get user's favorites
 export async function GET(request: NextRequest) {
+  const backendUrl = getBackendUrl()
+  
+  if (!backendUrl) {
+    console.error("[Favorites API] Backend URL not configured. Set NEXT_PUBLIC_FASTAPI_URL environment variable.")
+    return NextResponse.json(
+      { error: "Service temporarily unavailable" },
+      { status: 503 }
+    )
+  }
+
   try {
     const authHeader = request.headers.get("authorization")
 
@@ -10,7 +20,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const response = await fetch(`${getBackendUrl()}/api/favorites`, {
+    const response = await fetch(`${backendUrl}/api/favorites`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -33,4 +43,5 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
 
