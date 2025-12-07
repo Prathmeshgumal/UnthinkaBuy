@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -23,6 +23,14 @@ import {
 const otherNavItems = ["Brands", "New Arrivals", "Best Sellers", "Deals"]
 
 export function Header() {
+  return (
+    <Suspense fallback={<div className="h-16 bg-background border-b border-border" />}>
+      <HeaderContent />
+    </Suspense>
+  )
+}
+
+function HeaderContent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -185,9 +193,9 @@ export function Header() {
                 </Button>
               )}
 
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="relative"
                 onClick={() => user ? router.push("/favorites") : setIsAuthModalOpen(true)}
               >
@@ -199,9 +207,9 @@ export function Header() {
                 )}
               </Button>
 
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="relative"
                 onClick={() => user ? router.push("/cart") : setIsAuthModalOpen(true)}
               >
