@@ -65,15 +65,15 @@ export function Footer() {
             <ul className="space-y-3">
               <li className="flex items-center gap-3 text-muted text-sm">
                 <Mail className="h-4 w-4 flex-shrink-0" />
-                support@unthinkabuy.com
+                prathmeshgumal@gmail.com
               </li>
               <li className="flex items-center gap-3 text-muted text-sm">
                 <Phone className="h-4 w-4 flex-shrink-0" />
-                +91 1800-123-4567
+                9022634725
               </li>
               <li className="flex items-start gap-3 text-muted text-sm">
                 <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                123 Commerce Street, Tech Park, Bangalore - 560001
+                VIT, Pune
               </li>
             </ul>
           </div>
