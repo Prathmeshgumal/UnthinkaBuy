@@ -7,12 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes import auth, cart_favorites
 import products
 from database import get_supabase
+from database import get_supabase
 from typing import Dict, List
+import os
 
 app = FastAPI(
     title="UnthinkaBuy API",
     description="E-commerce API for UnthinkaBuy store",
-    version="1.0.0"
+    version="1.0.0",
+    root_path=os.getenv("FASTAPI_ROOT_PATH", ""),
 )
 
 # CORS middleware for frontend communication
