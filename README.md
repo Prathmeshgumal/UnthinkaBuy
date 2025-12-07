@@ -277,6 +277,46 @@ UnthinkaBuy/
 - [Supabase Documentation](https://supabase.com/docs)
 - [pnpm Documentation](https://pnpm.io/)
 
+## Deployment
+
+### Backend (Vercel)
+
+The backend is configured for Vercel Serverless deployment.
+
+1. **Import** the repository to Vercel.
+2. Set **Root Directory** to `backend`.
+3. Set **Framework Preset** to `Other`.
+4. Add Environment Variables:
+    - `SUPABASE_URL`
+    - `SUPABASE_SERVICE_ROLE_KEY`
+    - `SECRET_KEY`
+
+### Frontend (Netlify)
+
+1. **Import** the repository to Netlify.
+2. Set **Build command** to `npm run build` (or `pnpm build`).
+3. Set **Publish directory** to `.next`.
+4. Add Environment Variables:
+    - `NEXT_PUBLIC_SUPABASE_URL`
+    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+    - `NEXT_PUBLIC_FASTAPI_URL` (The URL of your deployed Vercel backend, e.g., `https://your-app.vercel.app`)
+
+## Local Machine Learning (Optional)
+
+If you need to run the `embedding.py` script locally to generate vector embeddings:
+
+1. Install the ML dependencies (these are excluded from production to save space):
+
+```bash
+pip install -r requirements-ml.txt
+```
+
+2. Run the script:
+
+```bash
+python embedding.py
+```
+
 ## License
 
 This project is private and proprietary.
