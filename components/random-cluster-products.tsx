@@ -4,20 +4,28 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { fetchRandomClusterProducts, fetchProductsByIds, type ClusterInfo } from "@/lib/random-cluster-products"
 import { ProductCard } from "@/components/product-card"
-import { Loader2 } from "lucide-react"
+import { Loader2, ChevronRight } from "lucide-react"
 import type { Product } from "@/lib/types"
+import { Button } from "@/components/ui/button"
 
 interface ClusterWithProducts {
   cluster: ClusterInfo
-  products: Product[]
+  allProducts: Product[]  // All products for this cluster (loaded once)
+  displayedProducts: Product[]  // Currently displayed products
+  displayedCount: number  // How many products are currently shown
+  hasMore: boolean
+  isLoadingMore: boolean
 }
 
 export function RandomClusterProducts() {
   const router = useRouter()
   const [clustersWithProducts, setClustersWithProducts] = useState<ClusterWithProducts[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const INITIAL_LIMIT = 5
+  const LOAD_MORE_INCREMENT = 5
 
   const handleProductClick = (product: Product) => {
+    // Navigate to product category
     router.push(`/?category=${encodeURIComponent(product.main_category)}`)
     setTimeout(() => {
       const productsSection = document.getElementById("products-section")
@@ -27,11 +35,40 @@ export function RandomClusterProducts() {
     }, 100)
   }
 
+  const loadMoreProducts = (clusterId: number) => {
+    // Client-side pagination - instant loading!
+    setClustersWithProducts(prev =>
+      prev.map(cluster => {
+        if (cluster.cluster.id === clusterId) {
+          const newDisplayedCount = cluster.displayedCount + LOAD_MORE_INCREMENT
+          const newDisplayedProducts = cluster.allProducts.slice(0, newDisplayedCount)
+          const hasMore = newDisplayedCount < cluster.allProducts.length
+          
+          // Scroll the Load More button into view after a brief delay
+          setTimeout(() => {
+            const loadMoreButton = document.getElementById(`load-more-${clusterId}`)
+            if (loadMoreButton) {
+              loadMoreButton.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "end" })
+            }
+          }, 50)
+          
+          return {
+            ...cluster,
+            displayedProducts: newDisplayedProducts,
+            displayedCount: newDisplayedCount,
+            hasMore: hasMore,
+          }
+        }
+        return cluster
+      })
+    )
+  }
+
   useEffect(() => {
     async function loadClusterProducts() {
       setIsLoading(true)
       try {
-        // Step 1: Fetch random cluster products
+        // Step 1: Fetch ALL products from random clusters (one-time load)
         const data = await fetchRandomClusterProducts()
 
         if (!data.clusters || data.clusters.length === 0) {
@@ -40,28 +77,48 @@ export function RandomClusterProducts() {
           return
         }
 
-        // Step 2: Fetch product details for all clusters
+        // Step 2: Fetch product details for ALL products in all clusters
         const allProductIds = data.clusters.flatMap((c) => c.product_ids)
-        const allProducts = await fetchProductsByIds(allProductIds)
+        
+        // Fetch products in batches to avoid overwhelming the API
+        const BATCH_SIZE = 100
+        const allProducts: Product[] = []
+        
+        for (let i = 0; i < allProductIds.length; i += BATCH_SIZE) {
+          const batch = allProductIds.slice(i, i + BATCH_SIZE)
+          const batchProducts = await fetchProductsByIds(batch)
+          allProducts.push(...batchProducts)
+        }
 
         // Create a map for quick product lookup
         const productMap = new Map(allProducts.map((p) => [p.id, p]))
 
-        // Step 3: Organize products by cluster
+        // Step 3: Organize products by cluster - store ALL products, show only first 5
         const clustersWithProds: ClusterWithProducts[] = data.clusters
-          .map((cluster) => ({
-            cluster,
-            products: cluster.product_ids
+          .map((cluster) => {
+            const allClusterProducts = cluster.product_ids
               .map((id) => productMap.get(id))
-              .filter((p): p is Product => p !== undefined),
-          }))
-          .filter((c) => c.products.length > 0)
+              .filter((p): p is Product => p !== undefined)
+            
+            // Show only first 5 initially
+            const displayedProducts = allClusterProducts.slice(0, INITIAL_LIMIT)
+            
+            return {
+              cluster,
+              allProducts: allClusterProducts,  // Store all products
+              displayedProducts: displayedProducts,  // Show only first 5
+              displayedCount: INITIAL_LIMIT,
+              hasMore: allClusterProducts.length > INITIAL_LIMIT,
+              isLoadingMore: false,
+            }
+          })
+          .filter((c) => c.allProducts.length > 0)
 
         // Shuffle the clusters for random placement
         const shuffled = [...clustersWithProds].sort(() => Math.random() - 0.5)
         setClustersWithProducts(shuffled)
 
-        console.log("[RandomClusterProducts] Loaded", shuffled.length, "clusters with products")
+        console.log("[RandomClusterProducts] Loaded", shuffled.length, "clusters with", allProductIds.length, "total products")
       } catch (error) {
         console.error("[RandomClusterProducts] Failed to load products:", error)
         setClustersWithProducts([])
@@ -112,7 +169,7 @@ export function RandomClusterProducts() {
               {/* Products in horizontal scrollable row - one line per cluster */}
               <div className="overflow-x-auto pb-2">
                 <div className="flex gap-3 min-w-max">
-                  {clusterData.products.map((product) => (
+                  {clusterData.displayedProducts.map((product) => (
                     <div
                       key={product.id}
                       className="flex-shrink-0 w-40 sm:w-44 md:w-48 cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
@@ -132,6 +189,28 @@ export function RandomClusterProducts() {
                       <ProductCard product={product} compact={true} />
                     </div>
                   ))}
+                  
+                  {/* Load More Button - ALWAYS appears at the end (until all products are loaded) */}
+                  <div 
+                    id={`load-more-${clusterData.cluster.id}`}
+                    className="flex-shrink-0 w-40 sm:w-44 md:w-48 flex items-center justify-center"
+                  >
+                    {clusterData.hasMore ? (
+                      <Button
+                        variant="outline"
+                        className="w-full h-full min-h-[200px] flex flex-col items-center justify-center gap-2"
+                        onClick={() => loadMoreProducts(clusterData.cluster.id)}
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                        <span className="text-sm font-medium">Load More</span>
+                      </Button>
+                    ) : (
+                      // Show a placeholder to maintain layout consistency when all products are loaded
+                      <div className="w-full h-full min-h-[200px] flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">All products shown</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

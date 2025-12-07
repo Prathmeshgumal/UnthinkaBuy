@@ -333,8 +333,7 @@ async def get_globally_loved_products():
 async def get_random_cluster_products():
     """
     Get random products from random clusters.
-    Returns 5 products from 4 random clusters (no similarity constraint).
-    Products and clusters change randomly on each page load.
+    Returns ALL products from 4 random clusters (frontend handles pagination for speed).
     """
     import random
     
@@ -362,7 +361,7 @@ async def get_random_cluster_products():
         num_clusters_to_select = min(4, len(all_clusters))
         selected_clusters = random.sample(all_clusters, num_clusters_to_select)
         
-        # Step 3: For each selected cluster, fetch random products
+        # Step 3: For each selected cluster, fetch ALL products (frontend will paginate)
         cluster_products = {}
         cluster_info = []
         
@@ -373,7 +372,7 @@ async def get_random_cluster_products():
             cluster_title = cluster.get("title") or f"Cluster {cluster_id}"
             cluster_description = cluster.get("description") or ""
             
-            # Fetch products for this cluster
+            # Fetch ALL products for this cluster
             try:
                 products_result = (
                     supabase.table("products")
@@ -381,7 +380,6 @@ async def get_random_cluster_products():
                         "id, name, image, ratings, discount_price, actual_price, main_category, sub_category, brand"
                     )
                     .eq("cluster_id", cluster_id)
-                    .limit(100)
                     .execute()
                 )
                 print(
@@ -395,22 +393,23 @@ async def get_random_cluster_products():
                 print(f"[Random Cluster Products] Cluster {cluster_id}: no products found, skipping")
                 continue
             
-            # No similarity constraint - just pick random products from the cluster
+            # Get all products in cluster
             products_in_cluster = products_result.data
-
-            # Randomly select up to 5 products from this cluster
-            num_products_to_select = min(5, len(products_in_cluster))
-            selected_products = random.sample(products_in_cluster, num_products_to_select)
             
-            # Extract product IDs
-            product_ids = [p["id"] for p in selected_products]
+            # Shuffle products for variety (only once, on initial load)
+            random.shuffle(products_in_cluster)
+            
+            # Extract ALL product IDs (frontend will handle pagination)
+            product_ids = [p["id"] for p in products_in_cluster]
             
             cluster_products[str(cluster_id)] = product_ids
             cluster_info.append({
                 "id": cluster_id,
                 "title": cluster_title,
                 "description": cluster_description,
-                "product_ids": product_ids
+                "product_ids": product_ids,  # All product IDs
+                "total_products": len(product_ids),
+                "has_more": len(product_ids) > 5,  # More than initial 5
             })
         
         return {
