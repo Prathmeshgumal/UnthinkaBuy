@@ -25,5 +25,6 @@ except ImportError:
     app = main_module.app
 
 # Wrap FastAPI app with Mangum for Vercel serverless compatibility
+# This is the handler that Vercel will call
 handler = Mangum(app, lifespan="off")
 
