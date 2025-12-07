@@ -4,19 +4,16 @@ import { getBackendUrl } from "@/lib/api-config"
 export async function POST(request: NextRequest) {
   const backendUrl = getBackendUrl()
   
-  if (!backendUrl) {
-    console.error("[Auth API] Backend URL not configured. Set NEXT_PUBLIC_FASTAPI_URL environment variable.")
-    return NextResponse.json(
-      { error: "Authentication server not configured. Please contact support." },
-      { status: 503 }
-    )
-  }
+  // If backendUrl is empty, use relative path (Vercel serverless functions)
+  const apiUrl = backendUrl 
+    ? `${backendUrl}/api/auth/login`
+    : `/api/auth/login`
 
   try {
     const body = await request.json()
 
     // Proxy request to FastAPI backend
-    const response = await fetch(`${backendUrl}/api/auth/login`, {
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

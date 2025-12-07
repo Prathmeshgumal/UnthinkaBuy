@@ -8,14 +8,9 @@ export async function POST(
 ) {
     const params = await props.params;
     const backendUrl = getBackendUrl()
-    
-    if (!backendUrl) {
-        console.error("[Favorites API] Backend URL not configured. Set NEXT_PUBLIC_FASTAPI_URL environment variable.")
-        return NextResponse.json(
-            { error: "Service temporarily unavailable" },
-            { status: 503 }
-        )
-    }
+    const apiUrl = backendUrl 
+        ? `${backendUrl}/api/favorites/${params.product_id}`
+        : `/api/favorites/${params.product_id}`
 
     try {
         const authHeader = request.headers.get("authorization")
@@ -26,8 +21,7 @@ export async function POST(
 
         console.log(`[Proxy] Adding favorite: ${params.product_id}`)
 
-        const response = await fetch(
-            `${backendUrl}/api/favorites/${params.product_id}`,
+        const response = await fetch(apiUrl,
             {
                 method: "POST",
                 headers: {
@@ -71,14 +65,9 @@ export async function DELETE(
 ) {
     const params = await props.params;
     const backendUrl = getBackendUrl()
-    
-    if (!backendUrl) {
-        console.error("[Favorites API] Backend URL not configured. Set NEXT_PUBLIC_FASTAPI_URL environment variable.")
-        return NextResponse.json(
-            { error: "Service temporarily unavailable" },
-            { status: 503 }
-        )
-    }
+    const apiUrl = backendUrl 
+        ? `${backendUrl}/api/favorites/${params.product_id}`
+        : `/api/favorites/${params.product_id}`
 
     try {
         const authHeader = request.headers.get("authorization")
@@ -87,8 +76,7 @@ export async function DELETE(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
-        const response = await fetch(
-            `${backendUrl}/api/favorites/${params.product_id}`,
+        const response = await fetch(apiUrl,
             {
                 method: "DELETE",
                 headers: {

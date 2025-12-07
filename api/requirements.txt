@@ -1,0 +1,14 @@
+fastapi>=0.115.0
+mangum>=0.17.0
+pydantic>=2.10.0
+python-dotenv>=1.0.0
+supabase>=2.10.0
+bcrypt>=4.2.0
+PyJWT>=2.9.0
+python-multipart>=0.0.12
+email-validator>=2.0.0
+
+# Note: sentence-transformers is too large for Vercel (500MB+, exceeds 50MB limit)
+# If you need it, deploy backend separately (Railway/Render) or remove this comment
+# sentence-transformers
+

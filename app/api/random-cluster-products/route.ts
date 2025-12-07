@@ -4,15 +4,11 @@ import { getBackendUrl } from "@/lib/api-config"
 export async function GET() {
   const backendUrl = getBackendUrl()
   
-  if (!backendUrl) {
-    console.error("[Random Cluster Products] Backend URL not configured. Set NEXT_PUBLIC_FASTAPI_URL environment variable.")
-    return NextResponse.json(
-      { cluster_products: {}, clusters: [], error: "Backend not configured" },
-      { status: 200 }
-    )
-  }
-
-  const apiUrl = `${backendUrl}/api/random-cluster-products`
+  // If backendUrl is empty, use relative path (Vercel serverless functions)
+  const apiUrl = backendUrl 
+    ? `${backendUrl}/api/random-cluster-products`
+    : `/api/random-cluster-products`
+  
   console.log("[Random Cluster Products] Fetching from:", apiUrl)
 
   try {
