@@ -1,5 +1,7 @@
 # UnthinkaBuy - E-commerce Application
 
+### 🚀 [Explore the Live Demo](https://unthinkabuy.netlify.app/)
+
 A modern e-commerce application built with Next.js frontend and FastAPI backend, powered by Supabase.
 
 ## Tech Stack
