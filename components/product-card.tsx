@@ -13,9 +13,16 @@ interface ProductCardProps {
   isBestseller?: boolean
   compact?: boolean
   initialFavorited?: boolean
+  onClick?: (product: Product) => void
 }
 
-export function ProductCard({ product, isBestseller = false, compact = false, initialFavorited = false }: ProductCardProps) {
+export function ProductCard({
+  product,
+  isBestseller = false,
+  compact = false,
+  initialFavorited = false,
+  onClick,
+}: ProductCardProps) {
   const { user } = useAuth()
   const { toast } = useToast()
   const [isWishlisted, setIsWishlisted] = useState(initialFavorited)
@@ -38,20 +45,19 @@ export function ProductCard({ product, isBestseller = false, compact = false, in
     return Array.from({ length: 5 }).map((_, i) => (
       <Star
         key={i}
-        className={`h-3 w-3 ${
-          i < Math.floor(rating)
+        className={`h-3 w-3 ${i < Math.floor(rating)
             ? "fill-warning text-warning"
             : i < rating
               ? "fill-warning/50 text-warning"
               : "text-muted"
-        }`}
+          }`}
       />
     ))
   }
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    
+
     if (!user) {
       toast({
         title: "Sign in required",
@@ -82,7 +88,7 @@ export function ProductCard({ product, isBestseller = false, compact = false, in
 
   const handleToggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    
+
     if (!user) {
       toast({
         title: "Sign in required",
@@ -98,7 +104,7 @@ export function ProductCard({ product, isBestseller = false, compact = false, in
       setIsWishlisted(!isWishlisted)
       toast({
         title: isWishlisted ? "Removed from favorites" : "Added to favorites",
-        description: isWishlisted 
+        description: isWishlisted
           ? `${product.name} removed from favorites`
           : `${product.name} added to favorites`,
       })
@@ -114,9 +120,18 @@ export function ProductCard({ product, isBestseller = false, compact = false, in
     }
   }
 
+  const handleCardClick = () => {
+    if (onClick) {
+      onClick(product)
+    }
+  }
+
   if (compact) {
     return (
-      <div className="group bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-all duration-300">
+      <div
+        className="group bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer"
+        onClick={handleCardClick}
+      >
         {/* Image Container */}
         <div className="relative aspect-square bg-muted overflow-hidden">
           {isBestseller && (
@@ -173,13 +188,12 @@ export function ProductCard({ product, isBestseller = false, compact = false, in
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
                     key={i}
-                    className={`h-2 w-2 ${
-                      i < Math.floor(ratingValue)
+                    className={`h-2 w-2 ${i < Math.floor(ratingValue)
                         ? "fill-warning text-warning"
                         : i < ratingValue
                           ? "fill-warning/50 text-warning"
                           : "text-muted"
-                    }`}
+                      }`}
                   />
                 ))}
               </div>
@@ -203,7 +217,10 @@ export function ProductCard({ product, isBestseller = false, compact = false, in
   }
 
   return (
-    <div className="group bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-all duration-300">
+    <div
+      className="group bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer"
+      onClick={handleCardClick}
+    >
       {/* Image Container */}
       <div className="relative aspect-square bg-muted overflow-hidden">
         {isBestseller && (

@@ -4,7 +4,7 @@ Main application entry point
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import auth, cart_favorites
+from routes import auth, cart_favorites, order_events
 import products
 from database import get_supabase
 from database import get_supabase
@@ -31,6 +31,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(cart_favorites.router, prefix="/api", tags=["Cart & Favorites"])
+app.include_router(order_events.router, prefix="/api", tags=["Order Events"])
 
 @app.get("/")
 async def root():

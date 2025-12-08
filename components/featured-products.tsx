@@ -13,8 +13,13 @@ export function FeaturedProducts() {
   const [isLoading, setIsLoading] = useState(true)
 
   const handleProductClick = (product: Product) => {
-    // Navigate to the product's main_category
-    router.push(`/?category=${encodeURIComponent(product.main_category)}`)
+    // Navigate to products page, highlight this product, and filter by its main category
+    const params = new URLSearchParams()
+    params.set("highlight", product.id)
+    params.set("category", product.main_category)
+
+    router.push(`/?${params.toString()}`)
+
     // Scroll to products section after navigation
     setTimeout(() => {
       const productsSection = document.getElementById("products-section")

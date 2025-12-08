@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { ProductCard } from "./product-card"
 import { FilterSidebar } from "./filter-sidebar"
 import { fetchProductsFromSupabase } from "@/lib/products-data"
@@ -14,7 +14,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/hooks/use-toast"
+import { logOrderEvent } from "@/lib/order-events"
+import { fetchProductsByIds } from "@/lib/random-cluster-products"
+import { addToCart, addToFavorites } from "@/lib/cart-favorites"
 
 export function ProductGrid() {
   const router = useRouter()
@@ -27,8 +31,14 @@ export function ProductGrid() {
   const minRating = searchParams.get("min_rating") || undefined
   const sortBy = searchParams.get("sort") || "default"
 
+  const highlightId = searchParams.get("highlight") || undefined
+
+  const { user, token } = useAuth()
+  const { toast } = useToast()
+
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [products, setProducts] = useState<Product[]>([])
+  const [highlightedProduct, setHighlightedProduct] = useState<Product | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -124,8 +134,121 @@ export function ProductGrid() {
     }
   }, [hasMore, isLoadingMore, isLoading, currentPage, selectedCategory, selectedSubCategory, selectedBrand, minPrice, maxPrice, minRating, sortBy, loadProducts])
 
+  // When highlightId is present in URL and products are loaded, set highlighted product
+  useEffect(() => {
+    if (!highlightId) {
+      setHighlightedProduct(null)
+      return
+    }
+
+    const found = products.find((p) => p.id === highlightId)
+    if (found) {
+      setHighlightedProduct(found)
+      return
+    }
+
+    // If not found in the current page of products, fetch it directly by ID
+    async function fetchHighlighted() {
+      try {
+        const result = await fetchProductsByIds([highlightId])
+        if (result && result[0]) {
+          setHighlightedProduct(result[0])
+        }
+      } catch (error) {
+        console.error("[ProductGrid] Failed to fetch highlighted product:", error)
+      }
+    }
+
+    fetchHighlighted()
+  }, [highlightId, products])
+
+  const handleProductClick = (product: Product) => {
+    // Highlight the clicked product at the top
+    setHighlightedProduct(product)
+
+    // Update URL with highlight param (keeps back/forward navigation consistent)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("highlight", product.id)
+    router.push(`/?${params.toString()}`)
+  }
+
+  const handleBuyNow = async (product: Product) => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to place an order.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Log the Buy Now click (fire-and-forget)
+    logOrderEvent(product.id, "buy_now_clicked", token).catch(console.error)
+
+    const params = new URLSearchParams()
+    params.set("productId", product.id)
+    router.push(`/checkout?${params.toString()}`)
+  }
+
+  const handleAddToCart = async (product: Product) => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to add items to cart.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await addToCart(product.id, 1)
+      toast({
+        title: "Added to cart",
+        description: `${product.name} has been added to your cart.`,
+      })
+    } catch (error) {
+      console.error("[ProductGrid] Failed to add to cart:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add item to cart.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleAddToFavorites = async (product: Product) => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to add favourites.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await addToFavorites(product.id)
+      toast({
+        title: "Added to favourites",
+        description: `${product.name} has been added to your favourites.`,
+      })
+    } catch (error) {
+      console.error("[ProductGrid] Failed to add to favourites:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add to favourites (it may already be in your favourites).",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Mark some products as bestsellers randomly
   const bestsellers = new Set([0, 3, 5, 8].map((i) => products[i]?.id).filter(Boolean))
+
+  // Products for the grid (exclude highlighted product so it only appears at the top section)
+  const gridProducts = highlightedProduct
+    ? products.filter((p) => p.id !== highlightedProduct.id)
+    : products
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
@@ -215,16 +338,93 @@ export function ProductGrid() {
           </div>
         ) : (
           <>
+            {/* Highlighted product at the top when a product is clicked / highlighted */}
+            {highlightedProduct && (
+              <div className="mb-8 p-6 border border-primary/30 rounded-2xl bg-primary/5 flex flex-col md:flex-row gap-6 shadow-sm">
+                <div className="w-full md:w-2/5 flex items-center justify-center bg-background rounded-xl p-6">
+                  <img
+                    src={highlightedProduct.image || "/placeholder.svg"}
+                    alt={highlightedProduct.name}
+                    className="max-h-64 object-contain"
+                  />
+                </div>
+                <div className="flex-1 flex flex-col justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase text-muted-foreground mb-1">
+                      {highlightedProduct.main_category} • {highlightedProduct.sub_category}
+                    </p>
+                    <h2 className="text-xl md:text-2xl font-semibold text-foreground mb-3">
+                      {highlightedProduct.name}
+                    </h2>
+                    <p className="text-lg md:text-2xl font-bold text-primary">
+                      {highlightedProduct.discount_price || highlightedProduct.actual_price}
+                    </p>
+                    {highlightedProduct.actual_price &&
+                      highlightedProduct.discount_price &&
+                      highlightedProduct.discount_price !== highlightedProduct.actual_price && (
+                        <p className="text-sm text-muted-foreground">
+                          <span className="line-through mr-2">{highlightedProduct.actual_price}</span>
+                        </p>
+                      )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+                    <Button
+                      className="flex-1 min-w-[140px] bg-primary text-primary-foreground hover:bg-primary/90"
+                      size="lg"
+                      onClick={() => handleBuyNow(highlightedProduct)}
+                    >
+                      Buy Now
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 min-w-[140px]"
+                      size="lg"
+                      onClick={() => handleAddToCart(highlightedProduct)}
+                    >
+                      Add to Cart
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 min-w-[140px]"
+                      size="lg"
+                      onClick={() => handleAddToFavorites(highlightedProduct)}
+                    >
+                      Add to Favourites
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="flex-1 min-w-[140px]"
+                      size="lg"
+                      onClick={() => {
+                        const params = new URLSearchParams()
+                        params.set("productId", highlightedProduct.id)
+                        router.push(`/review?${params.toString()}`)
+                      }}
+                    >
+                      Add Review
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Product Grid */}
             <div
+              id="products-grid-section"
               className={
                 viewMode === "grid"
                   ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
                   : "flex flex-col gap-4"
               }
             >
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} isBestseller={bestsellers.has(product.id)} />
+              {gridProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  isBestseller={bestsellers.has(product.id)}
+                  onClick={handleProductClick}
+                />
               ))}
             </div>
 

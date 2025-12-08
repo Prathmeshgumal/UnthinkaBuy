@@ -13,8 +13,13 @@ export function GloballyLovedProducts() {
   const [isLoading, setIsLoading] = useState(true)
 
   const handleProductClick = (product: Product) => {
-    // Navigate to the product's main_category
-    router.push(`/?category=${encodeURIComponent(product.main_category)}`)
+    // Navigate to the main products section and highlight this specific product
+    const params = new URLSearchParams()
+    params.set("highlight", product.id)
+    params.set("category", product.main_category)
+
+    router.push(`/?${params.toString()}`)
+
     // Scroll to products section after navigation
     setTimeout(() => {
       const productsSection = document.getElementById("products-section")

@@ -25,8 +25,14 @@ export function RandomClusterProducts() {
   const LOAD_MORE_INCREMENT = 5
 
   const handleProductClick = (product: Product) => {
-    // Navigate to product category
-    router.push(`/?category=${encodeURIComponent(product.main_category)}`)
+    // When a product is clicked from clusters, navigate to the main products section,
+    // highlight this product at the top and keep filters consistent.
+    const params = new URLSearchParams()
+    params.set("highlight", product.id)
+    params.set("category", product.main_category)
+
+    router.push(`/?${params.toString()}`)
+
     setTimeout(() => {
       const productsSection = document.getElementById("products-section")
       if (productsSection) {

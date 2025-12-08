@@ -12,9 +12,16 @@ export function DiscountedProducts() {
   const [products, setProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const handleProductClick = () => {
+  const handleProductClick = (product: Product) => {
     // Navigate to filtered view: price < 499 and rating > 4
-    router.push(`/?max_price=498&min_rating=4.1`)
+    // Also highlight the specific product that was clicked
+    const params = new URLSearchParams()
+    params.set("max_price", "498")
+    params.set("min_rating", "4.1")
+    params.set("highlight", product.id)
+
+    router.push(`/?${params.toString()}`)
+
     // Scroll to products section after navigation
     setTimeout(() => {
       const productsSection = document.getElementById("products-section")
@@ -90,7 +97,7 @@ export function DiscountedProducts() {
               ) {
                 return
               }
-              handleProductClick()
+              handleProductClick(product)
             }}
             className="cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
           >
