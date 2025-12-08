@@ -29,4 +29,14 @@ class Settings:
     # Database
     DATABASE_URL: str = os.getenv("POSTGRES_URL", "")
 
+    # Database - Direct Connection (for Recommendation Engine)
+    DB_HOST: str = os.getenv("DB_HOST", "")
+    DB_PORT: int = int(os.getenv("DB_PORT", "5432"))
+    DB_NAME: str = os.getenv("DB_NAME", "postgres")
+    DB_USER: str = os.getenv("DB_USER", "postgres")
+    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "")
+    
+    # Mistral AI
+    MISTRAL_API_KEY: str = os.getenv("MISTRAL_API_KEY", "")
+
 settings = Settings()

@@ -1,4 +1,4 @@
-import type { Product } from "./types"
+import type { Product, RecommendedProduct } from "./types"
 
 // Mock products data (used when Supabase is not connected)
 export const mockProducts: Product[] = [
@@ -260,4 +260,45 @@ export async function fetchTopCategoriesByReviews(): Promise<TopCategory[]> {
 // Keep these for fallback/compatibility
 export function getProducts(): Product[] {
   return []
+}
+
+export async function fetchUserRecommendations(userId: string, limit: number = 10): Promise<RecommendedProduct[]> {
+  try {
+    console.log(`[Recommendations] Fetching for user: ${userId}, limit: ${limit}`)
+    const response = await fetch(`${API_BASE}/recommendations/user/${userId}?limit=${limit}`)
+    
+    if (!response.ok) {
+      console.error(`[Recommendations] API error: ${response.status} ${response.statusText}`)
+      const errorText = await response.text().catch(() => "")
+      console.error(`[Recommendations] Error details: ${errorText}`)
+      return []
+    }
+    
+    const data = await response.json()
+    console.log(`[Recommendations] Received ${data?.length || 0} recommendations`)
+    
+    // Transform the response to match RecommendedProduct interface
+    // API returns 'id' but we need to ensure all fields are present
+    const transformed = (data || []).map((item: any) => ({
+      id: item.id || item.product_id || "",
+      name: item.name || "",
+      main_category: item.main_category || "",
+      sub_category: item.sub_category || "",
+      image: item.image || "",
+      link: item.link,
+      ratings: item.ratings,
+      no_of_ratings: item.no_of_ratings,
+      discount_price: item.discount_price,
+      actual_price: item.actual_price,
+      brand: item.brand,
+      match_score: item.match_score,
+      reason: item.reason,
+    }))
+    
+    console.log(`[Recommendations] Transformed to ${transformed.length} products`)
+    return transformed as RecommendedProduct[]
+  } catch (error) {
+    console.error("[Recommendations] Error fetching:", error)
+    return []
+  }
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { addToCart, toggleFavorite } from "@/lib/cart-favorites"
+import { clearRecommendationCache, refreshRecommendations } from "@/lib/recommendation-cache"
 import { useToast } from "@/hooks/use-toast"
 
 interface ProductCardProps {
@@ -70,6 +71,11 @@ export function ProductCard({
     setIsAddingToCart(true)
     try {
       await addToCart(product.id, 1)
+      // Refresh recommendations cache on major user activity
+      if (user) {
+        clearRecommendationCache()
+        refreshRecommendations(user.id).catch(console.error)
+      }
       toast({
         title: "Added to cart",
         description: `${product.name} has been added to your cart`,
@@ -102,6 +108,11 @@ export function ProductCard({
     try {
       await toggleFavorite(product.id, isWishlisted)
       setIsWishlisted(!isWishlisted)
+      // Refresh recommendations cache on major user activity
+      if (user && !isWishlisted) { // Only refresh when adding, not removing
+        clearRecommendationCache()
+        refreshRecommendations(user.id).catch(console.error)
+      }
       toast({
         title: isWishlisted ? "Removed from favorites" : "Added to favorites",
         description: isWishlisted
@@ -129,7 +140,7 @@ export function ProductCard({
   if (compact) {
     return (
       <div
-        className="group bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer"
+        className="group bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer h-full flex flex-col"
         onClick={handleCardClick}
       >
         {/* Image Container */}
@@ -163,12 +174,12 @@ export function ProductCard({
         </div>
 
         {/* Content */}
-        <div className="p-2 space-y-1">
+        <div className="p-2 space-y-1 flex-1 flex flex-col">
           {/* Category */}
           <span className="text-[10px] text-muted-foreground uppercase tracking-wide line-clamp-1">{product.sub_category}</span>
 
           {/* Product Name */}
-          <h3 className="text-xs font-medium text-foreground line-clamp-2 min-h-[2rem] leading-tight">{product.name}</h3>
+          <h3 className="text-xs font-medium text-foreground line-clamp-2 min-h-[2rem] leading-tight flex-1">{product.name}</h3>
 
           {/* Price */}
           <div className="flex items-center gap-1 flex-wrap">
@@ -218,13 +229,13 @@ export function ProductCard({
 
   return (
     <div
-      className="group bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer"
+      className="group bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer h-full flex flex-col"
       onClick={handleCardClick}
     >
       {/* Image Container */}
       <div className="relative aspect-square bg-muted overflow-hidden">
         {isBestseller && (
-          <span className="absolute top-2 left-2 z-10 bg-primary text-primary-foreground text-xs font-semibold px-2 py-1 rounded">
+          <span className="absolute top-1 left-1 z-10 bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 rounded">
             BESTSELLER
           </span>
         )}
@@ -232,49 +243,61 @@ export function ProductCard({
         <button
           onClick={handleToggleFavorite}
           disabled={isTogglingFavorite}
-          className="absolute top-2 right-2 z-10 p-2 rounded-full bg-background/80 hover:bg-background transition-colors disabled:opacity-50"
+          className="absolute top-1 right-1 z-10 p-1 rounded-full bg-background/80 hover:bg-background transition-colors disabled:opacity-50"
         >
-          <Heart className={`h-4 w-4 ${isWishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
+          <Heart className={`h-3 w-3 ${isWishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
         </button>
 
         {imageError ? (
           <div className="w-full h-full flex items-center justify-center bg-muted">
-            <span className="text-muted-foreground text-sm">Image unavailable</span>
+            <span className="text-muted-foreground text-xs">Image unavailable</span>
           </div>
         ) : (
           <img
             src={product.image || "/placeholder.svg"}
             alt={product.name}
-            className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
             onError={() => setImageError(true)}
           />
         )}
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-2">
+      <div className="p-2 space-y-1 flex-1 flex flex-col">
         {/* Category */}
-        <span className="text-xs text-muted-foreground uppercase tracking-wide">{product.sub_category}</span>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wide line-clamp-1">{product.sub_category}</span>
 
         {/* Product Name */}
-        <h3 className="text-sm font-medium text-foreground line-clamp-2 min-h-[2.5rem]">{product.name}</h3>
+        <h3 className="text-xs font-medium text-foreground line-clamp-2 min-h-[2rem] leading-tight flex-1">{product.name}</h3>
 
         {/* Price */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-lg font-bold text-foreground">{product.discount_price || product.actual_price}</span>
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-sm font-bold text-foreground">{product.discount_price || product.actual_price}</span>
           {hasDiscount && (
             <>
-              <span className="text-sm text-muted-foreground line-through">{product.actual_price}</span>
-              <span className="text-sm font-medium text-success">{calculateDiscount()}% Off</span>
+              <span className="text-[10px] text-muted-foreground line-through">{product.actual_price}</span>
+              <span className="text-[10px] font-medium text-success">{calculateDiscount()}% Off</span>
             </>
           )}
         </div>
 
         {/* Ratings - using parsed ratingValue */}
         {product.ratings && (
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-0.5">{renderStars(ratingValue)}</div>
-            <span className="text-xs text-muted-foreground">({product.no_of_ratings || "0"})</span>
+          <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  className={`h-2 w-2 ${i < Math.floor(ratingValue)
+                      ? "fill-warning text-warning"
+                      : i < ratingValue
+                        ? "fill-warning/50 text-warning"
+                        : "text-muted"
+                    }`}
+                />
+              ))}
+            </div>
+            <span className="text-[10px] text-muted-foreground">({product.no_of_ratings || "0"})</span>
           </div>
         )}
 
@@ -284,7 +307,7 @@ export function ProductCard({
           size="sm"
           onClick={handleAddToCart}
           disabled={isAddingToCart}
-          className="w-full mt-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent disabled:opacity-50"
+          className="w-full mt-1 h-7 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent disabled:opacity-50"
         >
           {isAddingToCart ? "Adding..." : "Add to Cart"}
         </Button>

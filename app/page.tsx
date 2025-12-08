@@ -10,12 +10,14 @@ import { RandomClusterProducts } from "@/components/random-cluster-products"
 import { Footer } from "@/components/footer"
 import { useSearchParams } from "next/navigation"
 
+import { RecommendedProductsWidget } from "@/components/recommended-products-widget"
+
 function HomeContent() {
   const searchParams = useSearchParams()
   const selectedCategory = searchParams.get("category")
   const maxPrice = searchParams.get("max_price")
   const minRating = searchParams.get("min_rating")
-  
+
   // Show products section if category is selected OR filters are applied
   const showProductsSection = selectedCategory || maxPrice || minRating
 
@@ -26,14 +28,19 @@ function HomeContent() {
       <main className="flex-1">
         {/* Products Section - Show when category is selected or filters are applied */}
         {showProductsSection ? (
-        <section id="products-section" className="container mx-auto px-4 py-8">
-          <ProductGrid />
-        </section>
+          <section id="products-section" className="container mx-auto px-4 py-4">
+            <ProductGrid />
+          </section>
         ) : (
           <div className="space-y-0">
             {/* Globally loved strip at the very top - full width */}
             <div className="bg-gradient-to-r from-blue-50 via-white to-red-50 dark:from-blue-950 dark:via-background dark:to-red-950 py-4">
               <GloballyLovedProducts />
+            </div>
+
+            {/* Personalized Recommendations Widget (Only shows if logged in) */}
+            <div className="bg-background">
+              <RecommendedProductsWidget />
             </div>
 
             {/* You may also like (random clusters) - denser layout */}

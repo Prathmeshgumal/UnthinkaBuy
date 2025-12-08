@@ -75,9 +75,12 @@ export function RandomClusterProducts() {
       setIsLoading(true)
       try {
         // Step 1: Fetch ALL products from random clusters (one-time load)
+        console.log("[RandomClusterProducts] Fetching cluster products...")
         const data = await fetchRandomClusterProducts()
+        console.log("[RandomClusterProducts] Received data:", data)
 
         if (!data.clusters || data.clusters.length === 0) {
+          console.warn("[RandomClusterProducts] No clusters returned from API")
           setClustersWithProducts([])
           setIsLoading(false)
           return
@@ -125,8 +128,13 @@ export function RandomClusterProducts() {
         setClustersWithProducts(shuffled)
 
         console.log("[RandomClusterProducts] Loaded", shuffled.length, "clusters with", allProductIds.length, "total products")
+        
+        if (shuffled.length === 0) {
+          console.warn("[RandomClusterProducts] No clusters with products found after filtering")
+        }
       } catch (error) {
         console.error("[RandomClusterProducts] Failed to load products:", error)
+        console.error("[RandomClusterProducts] Error details:", error instanceof Error ? error.message : String(error))
         setClustersWithProducts([])
       } finally {
         setIsLoading(false)
@@ -146,6 +154,8 @@ export function RandomClusterProducts() {
   }
 
   if (clustersWithProducts.length === 0) {
+    // Don't render anything if no clusters (component will be hidden)
+    // This prevents showing an empty section
     return null
   }
 

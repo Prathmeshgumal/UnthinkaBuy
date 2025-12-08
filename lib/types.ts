@@ -16,6 +16,12 @@ export interface Product {
   discount_price?: string
   actual_price?: string
   brand?: string
+  cluster_id?: number
+}
+
+export interface RecommendedProduct extends Product {
+  match_score?: number
+  reason?: string
 }
 
 export interface AuthResponse {

@@ -4,7 +4,8 @@ Main application entry point
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import auth, cart_favorites, order_events
+from routes import auth, cart_favorites, order_events, recommendations
+from rec_engine.engine import refresh_engine_data
 import products
 from database import get_supabase
 from database import get_supabase
@@ -31,7 +32,30 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(cart_favorites.router, prefix="/api", tags=["Cart & Favorites"])
+app.include_router(recommendations.router, prefix="/api", tags=["Recommendations"])
 app.include_router(order_events.router, prefix="/api", tags=["Order Events"])
+
+@app.on_event("startup")
+async def startup_event():
+    # Initialize recommendation engine in background task to avoid blocking startup
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+    
+    async def init_rec_engine():
+        try:
+            print("Initializing Recommendation Engine in background...")
+            # Run in thread pool to avoid blocking the event loop
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor() as executor:
+                await loop.run_in_executor(executor, refresh_engine_data)
+            print("✅ Recommendation Engine initialized successfully")
+        except Exception as e:
+            print(f"❌ Failed to init rec engine: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Start background task - don't await, let it run in background
+    asyncio.create_task(init_rec_engine())
 
 @app.get("/")
 async def root():

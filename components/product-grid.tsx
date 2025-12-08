@@ -6,7 +6,7 @@ import { ProductCard } from "./product-card"
 import { FilterSidebar } from "./filter-sidebar"
 import { fetchProductsFromSupabase } from "@/lib/products-data"
 import type { Product } from "@/lib/types"
-import { Grid3X3, LayoutList, Loader2, ChevronDown } from "lucide-react"
+import { Grid3X3, LayoutList, Loader2, ChevronDown, ChevronLeft, ChevronRight, Star, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -19,6 +19,12 @@ import { useToast } from "@/hooks/use-toast"
 import { logOrderEvent } from "@/lib/order-events"
 import { fetchProductsByIds } from "@/lib/random-cluster-products"
 import { addToCart, addToFavorites } from "@/lib/cart-favorites"
+import { clearRecommendationCache, refreshRecommendations } from "@/lib/recommendation-cache"
+import { RecommendedProduct } from "@/lib/types"
+import { RecommendationRow } from "./recommendation-row"
+import { Fragment } from "react"
+import { getCachedRecommendations } from "@/lib/recommendation-cache"
+import { fetchProductsByCluster } from "@/lib/cluster-products"
 
 export function ProductGrid() {
   const router = useRouter()
@@ -40,6 +46,11 @@ export function ProductGrid() {
   const [products, setProducts] = useState<Product[]>([])
   const [highlightedProduct, setHighlightedProduct] = useState<Product | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Scroll functionality
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
@@ -149,6 +160,7 @@ export function ProductGrid() {
 
     // If not found in the current page of products, fetch it directly by ID
     async function fetchHighlighted() {
+      if (!highlightId) return
       try {
         const result = await fetchProductsByIds([highlightId])
         if (result && result[0]) {
@@ -162,7 +174,26 @@ export function ProductGrid() {
     fetchHighlighted()
   }, [highlightId, products])
 
-  const handleProductClick = (product: Product) => {
+  // Recommendations Logic - Use cached recommendations
+  const [recommendations, setRecommendations] = useState<RecommendedProduct[]>([])
+  const [clusterRecommendations, setClusterRecommendations] = useState<Product[]>([])
+  const [showClusterRecs, setShowClusterRecs] = useState(false)
+
+  useEffect(() => {
+    if (!user) {
+      setRecommendations([])
+      return
+    }
+
+    // Load from cache
+    const cached = getCachedRecommendations(user.id)
+    if (cached.length > 0) {
+      console.log("[Fe] ProductGrid: Loaded", cached.length, "recommendations from cache")
+      setRecommendations(cached)
+    }
+  }, [user])
+
+  const handleProductClick = async (product: Product) => {
     // Highlight the clicked product at the top
     setHighlightedProduct(product)
 
@@ -170,6 +201,19 @@ export function ProductGrid() {
     const params = new URLSearchParams(searchParams.toString())
     params.set("highlight", product.id)
     router.push(`/?${params.toString()}`)
+
+    // If product has cluster_id, fetch cluster-based recommendations
+    if (product.cluster_id) {
+      setShowClusterRecs(true)
+      try {
+        const clusterProducts = await fetchProductsByCluster(product.cluster_id)
+        // Filter out the clicked product
+        const filtered = clusterProducts.filter(p => p.id !== product.id)
+        setClusterRecommendations(filtered.slice(0, 12))
+      } catch (error) {
+        console.error("[ProductGrid] Error fetching cluster products:", error)
+      }
+    }
   }
 
   const handleBuyNow = async (product: Product) => {
@@ -202,6 +246,11 @@ export function ProductGrid() {
 
     try {
       await addToCart(product.id, 1)
+      // Refresh recommendations cache on major user activity
+      if (user) {
+        clearRecommendationCache()
+        refreshRecommendations(user.id).catch(console.error)
+      }
       toast({
         title: "Added to cart",
         description: `${product.name} has been added to your cart.`,
@@ -228,6 +277,11 @@ export function ProductGrid() {
 
     try {
       await addToFavorites(product.id)
+      // Refresh recommendations cache on major user activity
+      if (user) {
+        clearRecommendationCache()
+        refreshRecommendations(user.id).catch(console.error)
+      }
       toast({
         title: "Added to favourites",
         description: `${product.name} has been added to your favourites.`,
@@ -242,6 +296,42 @@ export function ProductGrid() {
     }
   }
 
+  // Check scroll position
+  const checkScroll = useCallback(() => {
+    if (!scrollContainerRef.current) return
+    const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
+    const hasOverflow = scrollWidth > clientWidth + 5
+    setCanScrollLeft(scrollLeft > 10)
+    setCanScrollRight(hasOverflow && scrollLeft < scrollWidth - clientWidth - 10)
+    console.log('[Scroll]', { scrollWidth, clientWidth, hasOverflow, left: scrollLeft > 10, right: hasOverflow && scrollLeft < scrollWidth - clientWidth - 10 })
+  }, [])
+
+  // Scroll handler
+  const scroll = (direction: 'left' | 'right') => {
+    if (!scrollContainerRef.current) return
+    const scrollAmount = scrollContainerRef.current.clientWidth * 0.8
+    const scrollTo = direction === 'left'
+      ? scrollContainerRef.current.scrollLeft - scrollAmount
+      : scrollContainerRef.current.scrollLeft + scrollAmount
+
+    scrollContainerRef.current.scrollTo({
+      left: scrollTo,
+      behavior: 'smooth'
+    })
+  }
+
+  // Update scroll state when products change
+  useEffect(() => {
+    const timer = setTimeout(() => checkScroll(), 200)
+    return () => clearTimeout(timer)
+  }, [products, checkScroll])
+
+  // Add resize listener
+  useEffect(() => {
+    window.addEventListener('resize', checkScroll)
+    return () => window.removeEventListener('resize', checkScroll)
+  }, [checkScroll])
+
   // Mark some products as bestsellers randomly
   const bestsellers = new Set([0, 3, 5, 8].map((i) => products[i]?.id).filter(Boolean))
 
@@ -251,14 +341,14 @@ export function ProductGrid() {
     : products
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
+    <div className="flex flex-col lg:flex-row gap-4">
       {/* Filter Sidebar */}
       <FilterSidebar selectedCategory={selectedCategory} />
 
       {/* Products Section */}
-      <div className="flex-1">
+      <div className="flex-1 min-w-0 mr-2">
         {/* Toolbar */}
-        <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
           <div className="text-sm text-muted-foreground">
             {selectedCategory ? (
               <>
@@ -340,92 +430,193 @@ export function ProductGrid() {
           <>
             {/* Highlighted product at the top when a product is clicked / highlighted */}
             {highlightedProduct && (
-              <div className="mb-8 p-6 border border-primary/30 rounded-2xl bg-primary/5 flex flex-col md:flex-row gap-6 shadow-sm">
-                <div className="w-full md:w-2/5 flex items-center justify-center bg-background rounded-xl p-6">
-                  <img
-                    src={highlightedProduct.image || "/placeholder.svg"}
-                    alt={highlightedProduct.name}
-                    className="max-h-64 object-contain"
-                  />
-                </div>
-                <div className="flex-1 flex flex-col justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase text-muted-foreground mb-1">
-                      {highlightedProduct.main_category} • {highlightedProduct.sub_category}
-                    </p>
-                    <h2 className="text-xl md:text-2xl font-semibold text-foreground mb-3">
-                      {highlightedProduct.name}
-                    </h2>
-                    <p className="text-lg md:text-2xl font-bold text-primary">
-                      {highlightedProduct.discount_price || highlightedProduct.actual_price}
-                    </p>
-                    {highlightedProduct.actual_price &&
-                      highlightedProduct.discount_price &&
-                      highlightedProduct.discount_price !== highlightedProduct.actual_price && (
-                        <p className="text-sm text-muted-foreground">
-                          <span className="line-through mr-2">{highlightedProduct.actual_price}</span>
-                        </p>
-                      )}
+              <div className="mb-8 p-0 border border-border/50 rounded-xl bg-gradient-to-br from-card to-secondary/10 shadow-lg overflow-hidden max-w-5xl mx-auto group animate-in fade-in zoom-in-95 duration-500">
+                <div className="flex flex-col md:flex-row">
+                  {/* Image Section */}
+                  <div className="w-full md:w-1/3 lg:w-1/4 bg-white p-6 flex items-center justify-center relative overflow-hidden">
+                    {/* Decorative background element */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 opacity-50" />
+
+                    <img
+                      src={highlightedProduct.image || "/placeholder.svg"}
+                      alt={highlightedProduct.name}
+                      className="relative z-10 max-h-64 object-contain w-full hover:scale-110 transition-transform duration-500 ease-out"
+                    />
                   </div>
 
-                  <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-                    <Button
-                      className="flex-1 min-w-[140px] bg-primary text-primary-foreground hover:bg-primary/90"
-                      size="lg"
-                      onClick={() => handleBuyNow(highlightedProduct)}
-                    >
-                      Buy Now
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 min-w-[140px]"
-                      size="lg"
-                      onClick={() => handleAddToCart(highlightedProduct)}
-                    >
-                      Add to Cart
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 min-w-[140px]"
-                      size="lg"
-                      onClick={() => handleAddToFavorites(highlightedProduct)}
-                    >
-                      Add to Favourites
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="flex-1 min-w-[140px]"
-                      size="lg"
-                      onClick={() => {
-                        const params = new URLSearchParams()
-                        params.set("productId", highlightedProduct.id)
-                        router.push(`/review?${params.toString()}`)
-                      }}
-                    >
-                      Add Review
-                    </Button>
+                  {/* Content Section */}
+                  <div className="flex-1 p-6 md:p-8 flex flex-col justify-between gap-6">
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">
+                          {highlightedProduct.sub_category}
+                        </span>
+                        {highlightedProduct.ratings && (
+                          <div className="flex items-center gap-1 text-warning text-sm">
+                            <Star className="w-3.5 h-3.5 fill-current" />
+                            <span>{Math.round(Number(highlightedProduct.ratings) * 10) / 10}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground mb-3 leading-tight">
+                        {highlightedProduct.name}
+                      </h2>
+
+                      <div className="flex items-end gap-3 mb-4">
+                        <p className="text-2xl md:text-4xl font-bold text-primary">
+                          {highlightedProduct.discount_price || highlightedProduct.actual_price}
+                        </p>
+                        {highlightedProduct.actual_price &&
+                          highlightedProduct.discount_price &&
+                          highlightedProduct.discount_price !== highlightedProduct.actual_price && (
+                            <p className="text-base md:text-lg text-muted-foreground mb-1.5">
+                              <span className="line-through">{highlightedProduct.actual_price}</span>
+                              <span className="ml-2 text-success font-medium text-sm">
+                                {Math.round(((Number(highlightedProduct.actual_price.replace(/[^0-9]/g, "")) - Number(highlightedProduct.discount_price.replace(/[^0-9]/g, ""))) / Number(highlightedProduct.actual_price.replace(/[^0-9]/g, ""))) * 100)}% Off
+                              </span>
+                            </p>
+                          )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xl">
+                      <Button
+                        size="lg"
+                        className="flex-1 text-base font-semibold shadow-md hover:shadow-xl transition-all"
+                        onClick={() => handleBuyNow(highlightedProduct)}
+                      >
+                        Buy Now
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="flex-1 text-base border-primary/20 hover:bg-primary/5"
+                        onClick={() => handleAddToCart(highlightedProduct)}
+                      >
+                        Add to Cart
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11 rounded-full border border-border bg-background/50 hover:bg-background hover:text-red-500 hover:border-red-200 transition-colors"
+                        onClick={() => handleAddToFavorites(highlightedProduct)}
+                      >
+                        <Heart className="h-5 w-5" />
+                        <span className="sr-only">Favorite</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Product Grid */}
-            <div
-              id="products-grid-section"
-              className={
-                viewMode === "grid"
-                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-                  : "flex flex-col gap-4"
-              }
-            >
-              {gridProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  isBestseller={bestsellers.has(product.id)}
-                  onClick={handleProductClick}
-                />
-              ))}
+            {/* Product Grid with Recommendations Interleaved */}
+            <div id="products-grid-section" className="flex flex-col gap-8 pb-12">
+              {(() => {
+                // Chunk items into groups of 12 (approx 3 rows on large screens)
+                const chunkSize = 12;
+                const chunks = [];
+                for (let i = 0; i < gridProducts.length; i += chunkSize) {
+                  chunks.push(gridProducts.slice(i, i + chunkSize));
+                }
+
+                if (chunks.length === 0) return null;
+
+                return chunks.map((chunk, chunkIndex) => (
+                  <Fragment key={chunkIndex}>
+                    <div className="relative group/section">
+                      {/* Scroll buttons */}
+                      {canScrollLeft && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full bg-background/95 hover:bg-background shadow-xl border border-border/50 text-foreground/70 opacity-0 group-hover/section:opacity-100 transition-opacity duration-300 hidden md:flex"
+                          onClick={() => scroll('left')}
+                        >
+                          <ChevronLeft className="h-6 w-6" />
+                        </Button>
+                      )}
+                      {canScrollRight && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full bg-background/95 hover:bg-background shadow-xl border border-border/50 text-foreground/70 opacity-0 group-hover/section:opacity-100 transition-opacity duration-300 hidden md:flex"
+                          onClick={() => scroll('right')}
+                        >
+                          <ChevronRight className="h-6 w-6" />
+                        </Button>
+                      )}
+
+                      <div
+                        ref={scrollContainerRef}
+                        className={
+                          viewMode === "grid"
+                            ? "overflow-x-auto overflow-y-hidden scrollbar-hide py-2"
+                            : "flex flex-col gap-4"
+                        }
+                        style={viewMode === "grid" ? {
+                          scrollbarWidth: 'none',
+                          msOverflowStyle: 'none',
+                          WebkitOverflowScrolling: 'touch',
+                          scrollSnapType: 'x mandatory',
+                        } : undefined}
+                        onScroll={checkScroll}
+                      >
+                        <div
+                          className={
+                            viewMode === "grid"
+                              ? "flex gap-3"
+                              : "flex flex-col gap-4"
+                          }
+                          style={viewMode === "grid" ? {
+                            minWidth: 'max-content'
+                          } : undefined}
+                        >
+                          {chunk.map((product) => (
+                            <div key={product.id} className="flex-shrink-0 w-36 sm:w-40 md:w-44 scroll-snap-align-start">
+                              <ProductCard
+                                product={product}
+                                compact={true}
+                                isBestseller={bestsellers.has(product.id)}
+                                onClick={handleProductClick}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Show Recommendation Row after first chunk only - consistent across all categories */}
+                    {/* Show once at the top to avoid repetition */}
+                    {recommendations.length > 0 && chunkIndex === 0 && (
+                      <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <RecommendationRow
+                          products={recommendations}
+                        />
+                      </div>
+                    )}
+
+                    {/* Show cluster recommendations if a product was clicked */}
+                    {showClusterRecs && clusterRecommendations.length > 0 && chunkIndex === 0 && (
+                      <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 mt-4">
+                        <div className="py-6 my-4 border-y border-border/50 bg-secondary/5 rounded-xl px-4 md:px-6">
+                          <h3 className="text-xl font-semibold text-foreground mb-4">
+                            Similar Products
+                          </h3>
+                          <div className="flex flex-wrap gap-3 justify-start">
+                            {clusterRecommendations.slice(0, 6).map((product) => (
+                              <div key={product.id} className="flex-shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.5rem)] md:w-36 lg:w-40">
+                                <ProductCard product={product} compact={true} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </Fragment>
+                ));
+              })()}
             </div>
 
             {products.length === 0 && !isLoading && (

@@ -4,10 +4,10 @@ import { getBackendUrl } from "@/lib/api-config"
 export async function GET() {
   const backendUrl = getBackendUrl()
   
-  // If backendUrl is empty, use relative path (Vercel serverless functions)
+  // Always use the backend URL (should be http://localhost:8000 in dev)
   const apiUrl = backendUrl 
     ? `${backendUrl}/api/random-cluster-products`
-    : `/api/random-cluster-products`
+    : `http://localhost:8000/api/random-cluster-products`
   
   console.log("[Random Cluster Products] Fetching from:", apiUrl)
 

@@ -2,7 +2,7 @@
 Cart and Favorites routes for UnthinkaBuy
 Handles shopping cart and wishlist functionality
 """
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -65,7 +65,8 @@ async def get_cart(current_user: User = Depends(get_current_user)):
 @router.post("/cart")
 async def add_to_cart(
     request: AddToCartRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = BackgroundTasks
 ):
     """Add item to cart or update quantity if already exists"""
     try:
@@ -85,13 +86,14 @@ async def add_to_cart(
                 "quantity": new_quantity
             }).eq("id", existing.data[0]["id"]).execute()
             
-            # Log activity
-            supabase.table("cart_activity_log").insert({
-                "user_id": current_user.id,
-                "product_id": request.product_id,
-                "action": "quantity_updated",
-                "quantity": new_quantity
-            }).execute()
+            # Log activity in background (non-blocking)
+            background_tasks.add_task(
+                _log_cart_activity,
+                current_user.id,
+                request.product_id,
+                "quantity_updated",
+                new_quantity
+            )
             
             return {"message": "Cart updated", "item": result.data[0]}
         else:
@@ -102,19 +104,49 @@ async def add_to_cart(
                 "quantity": request.quantity
             }).execute()
             
-            # Log activity
-            supabase.table("cart_activity_log").insert({
-                "user_id": current_user.id,
-                "product_id": request.product_id,
-                "action": "added",
-                "quantity": request.quantity
-            }).execute()
+            # Log activity in background (non-blocking)
+            background_tasks.add_task(
+                _log_cart_activity,
+                current_user.id,
+                request.product_id,
+                "added",
+                request.quantity
+            )
             
             return {"message": "Item added to cart", "item": result.data[0]}
     
     except Exception as e:
         print(f"[Cart] Error adding to cart: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to add to cart: {str(e)}")
+
+def _log_cart_activity(user_id: str, product_id: str, action: str, quantity: int):
+    """Helper function to log cart activity in background"""
+    try:
+        supabase = get_supabase()
+        if supabase:
+            supabase.table("cart_activity_log").insert({
+                "user_id": user_id,
+                "product_id": product_id,
+                "action": action,
+                "quantity": quantity
+            }).execute()
+    except Exception as e:
+        print(f"[Cart] Failed to log activity: {str(e)}")
+
+def _log_favorite_activity(user_id: str, product_id: str, action: str):
+    """Helper function to log favorite activity in background"""
+    try:
+        supabase = get_supabase()
+        if supabase:
+            supabase.table("favorites_activity_log").insert({
+                "user_id": user_id,
+                "product_id": product_id,
+                "action": action
+            }).execute()
+    except Exception as e:
+        print(f"[Favorites] Failed to log activity: {str(e)}")
 
 @router.put("/cart/{product_id}")
 async def update_cart_quantity(
@@ -248,7 +280,8 @@ async def get_favorites(current_user: User = Depends(get_current_user)):
 @router.post("/favorites/{product_id}")
 async def add_to_favorites(
     product_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = BackgroundTasks
 ):
     """Add item to favorites"""
     try:
@@ -270,23 +303,27 @@ async def add_to_favorites(
             "product_id": product_id
         }).execute()
         
-        # Log activity
-        supabase.table("favorites_activity_log").insert({
-            "user_id": current_user.id,
-            "product_id": product_id,
-            "action": "added"
-        }).execute()
+        # Log activity in background (non-blocking)
+        background_tasks.add_task(
+            _log_favorite_activity,
+            current_user.id,
+            product_id,
+            "added"
+        )
         
         return {"message": "Item added to favorites", "favorite": result.data[0]}
     
     except Exception as e:
         print(f"[Favorites] Error adding to favorites: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to add to favorites: {str(e)}")
 
 @router.delete("/favorites/{product_id}")
 async def remove_from_favorites(
     product_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = BackgroundTasks
 ):
     """Remove item from favorites"""
     try:
@@ -302,12 +339,13 @@ async def remove_from_favorites(
         if not result.data:
             raise HTTPException(status_code=404, detail="Favorite not found")
         
-        # Log activity
-        supabase.table("favorites_activity_log").insert({
-            "user_id": current_user.id,
-            "product_id": product_id,
-            "action": "removed"
-        }).execute()
+        # Log activity in background (non-blocking)
+        background_tasks.add_task(
+            _log_favorite_activity,
+            current_user.id,
+            product_id,
+            "removed"
+        )
         
         return {"message": "Item removed from favorites"}
     
@@ -315,6 +353,8 @@ async def remove_from_favorites(
         raise
     except Exception as e:
         print(f"[Favorites] Error removing from favorites: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to remove from favorites: {str(e)}")
 
 @router.get("/favorites/activity")
@@ -355,6 +395,9 @@ async def check_if_favorited(
     except Exception as e:
         print(f"[Favorites] Error checking favorite: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to check favorite: {str(e)}")
+
+
+
 
 
 
